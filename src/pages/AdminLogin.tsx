@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,37 +16,55 @@ const AdminLogin = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const { login, signup } = useAuth();
 
-  useEffect(() => {
-    const checkUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        await verifyAdminAccess(session.user.id);
-      }
-    };
-    checkUser();
-  }, []);
+  const validateForm = () => {
+    if (!email || !password) {
+      toast.error("Please fill in all required fields");
+      return false;
+    }
 
-  const verifyAdminAccess = async (userId: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      toast.error("Please enter a valid email address");
+      return false;
+    }
+
+    if (password.length < 6) {
+      toast.error("Password must be at least 6 characters");
+      return false;
+    }
+
+    if (isSignup && !fullName) {
+      toast.error("Please enter your full name");
+      return false;
+    }
+
+    return true;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!validateForm()) return;
+
+    setLoading(true);
+
     try {
-      const { data, error } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", userId)
-        .single();
-
-      if (error) throw error;
-
-      if (data?.role === "admin") {
+      if (isSignup) {
+        await signup(email, password, fullName, 'admin');
+        toast.success("Admin account created successfully!");
         navigate("/admin");
       } else {
-        toast.error("Unauthorized: Admin access only");
-        await supabase.auth.signOut();
+        await login(email, password);
+        toast.success("Login successful!");
+        navigate("/admin");
       }
-    } catch (error) {
-      console.error("Role verification error:", error);
-      toast.error("Unable to verify admin access");
-      await supabase.auth.signOut();
+    } catch (error: any) {
+      console.error("Auth error:", error);
+      toast.error(error.message || "Authentication failed");
+    } finally {
+      setLoading(false);
     }
   };
 

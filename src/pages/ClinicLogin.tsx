@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,38 +16,7 @@ const ClinicLogin = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-
-  useEffect(() => {
-    const checkUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        await verifyClinicAccess(session.user.id);
-      }
-    };
-    checkUser();
-  }, []);
-
-  const verifyClinicAccess = async (userId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", userId)
-        .single();
-
-      if (error) throw error;
-
-      if (data?.role === "clinic") {
-        navigate("/");
-      } else {
-        toast.error("Please use the admin portal");
-        await supabase.auth.signOut();
-      }
-    } catch (error) {
-      console.error("Role verification error:", error);
-      navigate("/");
-    }
-  };
+  const { login, signup } = useAuth();
 
   const validateForm = () => {
     if (!email || !password) {
@@ -83,35 +52,13 @@ const ClinicLogin = () => {
 
     try {
       if (isSignup) {
-        const { data, error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            emailRedirectTo: `${window.location.origin}/`,
-            data: {
-              full_name: fullName,
-            },
-          },
-        });
-
-        if (error) throw error;
-
+        await signup(email, password, fullName, 'clinic');
         toast.success("Account created successfully!");
-        if (data.user) {
-          await verifyClinicAccess(data.user.id);
-        }
+        navigate("/");
       } else {
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-
-        if (error) throw error;
-
+        await login(email, password);
         toast.success("Login successful!");
-        if (data.user) {
-          await verifyClinicAccess(data.user.id);
-        }
+        navigate("/");
       }
     } catch (error: any) {
       console.error("Auth error:", error);
