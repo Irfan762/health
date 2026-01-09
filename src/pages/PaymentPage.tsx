@@ -7,7 +7,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { ArrowLeft, CreditCard } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
 const PaymentPage = () => {
@@ -17,28 +16,46 @@ const PaymentPage = () => {
   const [loading, setLoading] = useState(false);
   const [purchase, setPurchase] = useState<any>(null);
 
-  const machine = machines.find((m) => m.id === id);
+  // Get machine details from purchase data or fallback to static data
+  const machine = purchase ? 
+    machines.find((m) => m.id === purchase.machineId) || {
+      id: purchase.machineId,
+      machineName: purchase.machineName,
+      price: purchase.price,
+      image: "https://images.unsplash.com/photo-1516549655169-df83a0774514?w=800&q=80",
+      type: "Medical Equipment",
+      condition: "Good"
+    } : null;
 
   useEffect(() => {
     const fetchPurchase = async () => {
       if (!user || !id) return;
       
       try {
-        const { data, error } = await supabase
-          .from("purchases")
-          .select("*")
-          .eq("id", id)
-          .eq("user_id", user.id)
-          .eq("status", "pending_payment")
-          .maybeSingle();
+        const token = localStorage.getItem('authToken');
+        const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+        
+        const response = await fetch(`${API_BASE_URL}/purchases/my-purchases`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
 
-        if (error) throw error;
-        if (!data) {
-          toast.error("Purchase not found");
-          navigate("/machines");
-          return;
+        if (response.ok) {
+          const purchases = await response.json();
+          // Find the purchase by ID
+          const foundPurchase = purchases.find((p: any) => p._id === id);
+          
+          if (!foundPurchase) {
+            toast.error("Purchase not found");
+            navigate("/machines");
+            return;
+          }
+          setPurchase(foundPurchase);
+        } else {
+          throw new Error('Failed to fetch purchase');
         }
-        setPurchase(data);
       } catch (error) {
         console.error("Error fetching purchase:", error);
         toast.error("Failed to load purchase details");
@@ -62,15 +79,27 @@ const PaymentPage = () => {
   const handlePayment = async () => {
     setLoading(true);
     try {
-      const { error } = await supabase
-        .from("purchases")
-        .update({ status: "paid" })
-        .eq("id", purchase.id);
+      const token = localStorage.getItem('authToken');
+      const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+      
+      const response = await fetch(`${API_BASE_URL}/purchases/${purchase._id}/status`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          status: 'confirmed',
+          paymentStatus: 'paid' 
+        }),
+      });
 
-      if (error) throw error;
-
-      toast.success("Payment successful!");
-      navigate(`/payment-success?orderId=${purchase.id}`);
+      if (response.ok) {
+        toast.success("Payment successful!");
+        navigate(`/payment-success?orderId=${purchase._id}`);
+      } else {
+        throw new Error('Payment processing failed');
+      }
     } catch (error) {
       console.error("Error processing payment:", error);
       toast.error("Payment failed. Please try again.");
@@ -84,9 +113,9 @@ const PaymentPage = () => {
       <Navigation />
 
       <div className="container mx-auto px-4 py-8 max-w-3xl">
-        <Button variant="ghost" onClick={() => navigate(`/machines/${machine.id}`)} className="mb-6">
+        <Button variant="ghost" onClick={() => navigate("/machines")} className="mb-6">
           <ArrowLeft className="h-4 w-4 mr-2" />
-          Back
+          Back to Machines
         </Button>
 
         <div className="space-y-6">

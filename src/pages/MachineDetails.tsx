@@ -116,6 +116,8 @@ const MachineDetails = () => {
         price: machine.price,
       };
 
+      console.log("Sending purchase request:", purchaseData);
+
       const response = await fetch(`${API_BASE_URL}/purchases`, {
         method: 'POST',
         headers: {
@@ -125,12 +127,16 @@ const MachineDetails = () => {
         body: JSON.stringify(purchaseData),
       });
 
+      console.log("Purchase response status:", response.status);
+
       if (!response.ok) {
         const error = await response.json();
+        console.error("Purchase API error:", error);
         throw new Error(error.message || 'Failed to create purchase');
       }
 
       const result = await response.json();
+      console.log("Purchase success:", result);
       navigate(`/payment/${result.purchase._id}`);
     } catch (error: any) {
       console.error("Error creating purchase:", error);

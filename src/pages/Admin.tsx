@@ -13,7 +13,6 @@ import { machines as initialMachines } from "@/data/machines";
 import { Machine } from "@/types";
 import { toast } from "sonner";
 import { Plus, Edit, Trash2, Package, CheckCircle, XCircle, Clock, Eye, User, Phone, MapPin, Calendar, IndianRupee } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 
 const Admin = () => {
@@ -516,7 +515,7 @@ const Admin = () => {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {rentalRequests.filter(r => r.adminStatus === "approved" && (!r.paymentStatus || r.paymentStatus === "pending")).map((request) => {
+                    {rentalRequests.filter(r => r.admin_status === "approved" && (!r.payment_status || r.payment_status === "pending")).map((request) => {
                       const machineDetails = getMachineDetails(request);
                       
                       return (

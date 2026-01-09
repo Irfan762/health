@@ -8,46 +8,44 @@ const router = express.Router();
 
 // Create purchase
 router.post('/', authenticate, [
-  body('machineId').isMongoId(),
-  body('shippingAddress.street').notEmpty().trim(),
-  body('shippingAddress.city').notEmpty().trim(),
-  body('shippingAddress.state').notEmpty().trim(),
-  body('shippingAddress.zipCode').notEmpty().trim(),
+  body('machineId').notEmpty().trim(),
+  body('machineName').notEmpty().trim(),
+  body('price').isNumeric({ min: 0 }),
+  body('shippingAddress.street').optional().trim(),
+  body('shippingAddress.city').optional().trim(),
+  body('shippingAddress.state').optional().trim(),
+  body('shippingAddress.zipCode').optional().trim(),
   body('notes').optional().trim()
 ], async (req, res) => {
   try {
+    console.log("Purchase request received:", req.body);
+    
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      console.log("Validation errors:", errors.array());
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { machineId, shippingAddress, notes } = req.body;
+    const { machineId, machineName, price, shippingAddress, notes } = req.body;
 
-    // Check if machine exists and is available
-    const machine = await Machine.findById(machineId);
-    if (!machine) {
-      return res.status(404).json({ message: 'Machine not found' });
-    }
-
-    if (!machine.availability) {
-      return res.status(400).json({ message: 'Machine is not available for purchase' });
-    }
-
-    // Create purchase
+    // Create purchase with data from frontend (since we're using static machine data)
     const purchase = new Purchase({
       machineId,
-      machineName: machine.machineName,
+      machineName,
       userId: req.user._id,
-      price: machine.price,
-      shippingAddress,
+      price,
+      shippingAddress: shippingAddress || {
+        street: "Default Street",
+        city: "Default City", 
+        state: "Default State",
+        zipCode: "000000"
+      },
       notes
     });
 
+    console.log("Saving purchase...");
     await purchase.save();
-
-    // Mark machine as unavailable
-    machine.availability = false;
-    await machine.save();
+    console.log("Purchase saved successfully:", purchase._id);
 
     res.status(201).json({
       message: 'Purchase order created successfully',
