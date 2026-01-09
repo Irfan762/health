@@ -16,7 +16,7 @@ const ClinicLogin = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const { login, signup } = useAuth();
+  const { login, register } = useAuth();
 
   const validateForm = () => {
     if (!email || !password) {
@@ -52,7 +52,7 @@ const ClinicLogin = () => {
 
     try {
       if (isSignup) {
-        await signup(email, password, fullName, 'clinic');
+        await register({ fullName, email, password, role: 'clinic' });
         toast.success("Account created successfully!");
         navigate("/");
       } else {
