@@ -49,13 +49,16 @@ const AdminLogin = () => {
     if (!validateForm()) return;
 
     setLoading(true);
+    console.log("Admin login attempt:", { email, isSignup });
 
     try {
       if (isSignup) {
+        console.log("Registering admin user...");
         await register({ fullName, email, password, role: 'admin' });
         toast.success("Admin account created successfully!");
         navigate("/admin");
       } else {
+        console.log("Logging in admin user...");
         await login(email, password);
         toast.success("Login successful!");
         navigate("/admin");
@@ -157,6 +160,23 @@ const AdminLogin = () => {
                 </>
               )}
             </Button>
+
+            {/* Quick Test Button */}
+            {!isSignup && (
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full h-11"
+                onClick={() => {
+                  setEmail("admin@mediequip.com");
+                  setPassword("admin123");
+                  toast.info("Test credentials filled!");
+                }}
+                disabled={loading}
+              >
+                Fill Test Admin Credentials
+              </Button>
+            )}
 
             <div className="relative my-6">
               <div className="absolute inset-0 flex items-center">

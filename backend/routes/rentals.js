@@ -8,7 +8,8 @@ const router = express.Router();
 
 // Create rental request
 router.post('/request', authenticate, [
-  body('machineId').isMongoId(),
+  body('machineId').notEmpty().trim(),
+  body('machineName').notEmpty().trim(),
   body('userName').notEmpty().trim(),
   body('phone').notEmpty().trim(),
   body('villageName').notEmpty().trim(),
@@ -16,27 +17,21 @@ router.post('/request', authenticate, [
   body('totalPrice').isNumeric({ min: 0 })
 ], async (req, res) => {
   try {
+    console.log("Rental request received:", req.body);
+    console.log("User:", req.user?.fullName, req.user?._id);
+    
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      console.log("Validation errors:", errors.array());
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { machineId, userName, phone, villageName, rentalDuration, totalPrice } = req.body;
-
-    // Check if machine exists and is available
-    const machine = await Machine.findById(machineId);
-    if (!machine) {
-      return res.status(404).json({ message: 'Machine not found' });
-    }
-
-    if (!machine.availability) {
-      return res.status(400).json({ message: 'Machine is not available for rental' });
-    }
+    const { machineId, machineName, userName, phone, villageName, rentalDuration, totalPrice } = req.body;
 
     // Create rental request
     const rentalRequest = new RentalRequest({
       machineId,
-      machineName: machine.machineName,
+      machineName,
       userId: req.user._id,
       userName,
       phone,
@@ -45,13 +40,16 @@ router.post('/request', authenticate, [
       totalPrice
     });
 
+    console.log("Saving rental request...");
     await rentalRequest.save();
+    console.log("Rental request saved successfully:", rentalRequest._id);
 
     res.status(201).json({
       message: 'Rental request submitted successfully',
       rentalRequest
     });
   } catch (error) {
+    console.error("Error in rental request route:", error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });

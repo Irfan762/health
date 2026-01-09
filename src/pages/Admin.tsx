@@ -61,13 +61,39 @@ const Admin = () => {
 
   const fetchRentalRequests = async () => {
     try {
-      const { data, error } = await supabase
-        .from("rental_requests")
-        .select("*")
-        .order("created_at", { ascending: false });
+      const token = localStorage.getItem('authToken');
+      const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+      
+      const response = await fetch(`${API_BASE_URL}/rentals/requests`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
 
-      if (error) throw error;
-      setRentalRequests(data || []);
+      if (response.ok) {
+        const data = await response.json();
+        console.log("Fetched rental requests:", data);
+        
+        // Transform backend data to match frontend expectations
+        const transformedData = data.map((request: any) => ({
+          ...request,
+          id: request._id,
+          admin_status: request.adminStatus,
+          payment_status: request.paymentStatus,
+          payment_method: request.paymentMethod,
+          user_name: request.userName,
+          machine_name: request.machineName,
+          rental_duration: request.rentalDuration,
+          total_price: request.totalPrice,
+          village_name: request.villageName,
+          created_at: request.createdAt
+        }));
+        
+        setRentalRequests(transformedData || []);
+      } else {
+        console.error("Failed to fetch rental requests:", response.status);
+      }
     } catch (error) {
       console.error("Error fetching rental requests:", error);
     }
@@ -89,15 +115,24 @@ const Admin = () => {
 
   const handleApproveRequest = async (id: string) => {
     try {
-      const { error } = await supabase
-        .from("rental_requests")
-        .update({ admin_status: "approved" })
-        .eq("id", id);
+      const token = localStorage.getItem('authToken');
+      const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+      
+      const response = await fetch(`${API_BASE_URL}/rentals/requests/${id}/status`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ adminStatus: 'approved' }),
+      });
 
-      if (error) throw error;
-
-      toast.success("Request approved");
-      fetchRentalRequests();
+      if (response.ok) {
+        toast.success("Request approved");
+        fetchRentalRequests();
+      } else {
+        throw new Error('Failed to approve request');
+      }
     } catch (error) {
       console.error("Error approving request:", error);
       toast.error("Failed to approve request");
@@ -106,15 +141,24 @@ const Admin = () => {
 
   const handleRejectRequest = async (id: string) => {
     try {
-      const { error } = await supabase
-        .from("rental_requests")
-        .update({ admin_status: "rejected" })
-        .eq("id", id);
+      const token = localStorage.getItem('authToken');
+      const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+      
+      const response = await fetch(`${API_BASE_URL}/rentals/requests/${id}/status`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ adminStatus: 'rejected' }),
+      });
 
-      if (error) throw error;
-
-      toast.success("Request rejected");
-      fetchRentalRequests();
+      if (response.ok) {
+        toast.success("Request rejected");
+        fetchRentalRequests();
+      } else {
+        throw new Error('Failed to reject request');
+      }
     } catch (error) {
       console.error("Error rejecting request:", error);
       toast.error("Failed to reject request");
@@ -472,7 +516,7 @@ const Admin = () => {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {rentalRequests.filter(r => r.admin_status === "approved" && (!r.payment_status || r.payment_status === "pending")).map((request) => {
+                    {rentalRequests.filter(r => r.adminStatus === "approved" && (!r.paymentStatus || r.paymentStatus === "pending")).map((request) => {
                       const machineDetails = getMachineDetails(request);
                       
                       return (

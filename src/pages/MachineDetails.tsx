@@ -12,7 +12,6 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { ArrowLeft, ShoppingCart, Calendar, Shield, Wrench, Package, CheckCircle, XCircle, Clock } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
 const MachineDetails = () => {
@@ -21,7 +20,6 @@ const MachineDetails = () => {
   const [searchParams] = useSearchParams();
   const { user, isAdmin } = useAuth();
   const [showRentalDialog, setShowRentalDialog] = useState(false);
-  const [showRentNowDialog, setShowRentNowDialog] = useState(false);
   const [rentalDuration, setRentalDuration] = useState("");
   const [rentalForm, setRentalForm] = useState({
     userName: "",
@@ -39,17 +37,25 @@ const MachineDetails = () => {
       if (!user || !machine) return;
       
       try {
-        const { data, error } = await supabase
-          .from("rental_requests")
-          .select("*")
-          .eq("user_id", user.id)
-          .eq("machine_id", machine.id)
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
+        const token = localStorage.getItem('authToken');
+        if (!token) return;
 
-        if (error) throw error;
-        setRentalRequest(data);
+        const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+        const response = await fetch(`${API_BASE_URL}/rentals/my-requests`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          // Find request for this specific machine
+          const machineRequest = data.find((req: any) => 
+            req.machineId === machine.id || req.machineId?._id === machine.id
+          );
+          setRentalRequest(machineRequest || null);
+        }
       } catch (error) {
         console.error("Error checking rental request:", error);
       } finally {
@@ -101,24 +107,34 @@ const MachineDetails = () => {
     }
 
     try {
-      const { data, error } = await supabase
-        .from("purchases")
-        .insert({
-          user_id: user.id,
-          machine_id: machine.id,
-          machine_name: machine.machineName,
-          price: machine.price,
-          status: "pending_payment",
-        })
-        .select()
-        .single();
+      const token = localStorage.getItem('authToken');
+      const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+      
+      const purchaseData = {
+        machineId: machine.id,
+        machineName: machine.machineName,
+        price: machine.price,
+      };
 
-      if (error) throw error;
+      const response = await fetch(`${API_BASE_URL}/purchases`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(purchaseData),
+      });
 
-      navigate(`/payment/${data.id}`);
-    } catch (error) {
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to create purchase');
+      }
+
+      const result = await response.json();
+      navigate(`/payment/${result.purchase._id}`);
+    } catch (error: any) {
       console.error("Error creating purchase:", error);
-      toast.error("Failed to initiate purchase. Please try again.");
+      toast.error(error.message || "Failed to initiate purchase. Please try again.");
     }
   };
 
@@ -134,72 +150,52 @@ const MachineDetails = () => {
     }
 
     try {
-      const { error } = await supabase
-        .from("rental_requests")
-        .insert({
-          user_id: user.id,
-          machine_id: machine.id,
-          machine_name: machine.machineName,
-          user_name: rentalForm.userName,
-          phone: rentalForm.phone,
-          village_name: rentalForm.villageName,
-          rental_duration: rentalDuration,
-          total_price: calculateRentalPrice(),
-          admin_status: "pending",
-        });
+      const token = localStorage.getItem('authToken');
+      const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+      
+      const requestData = {
+        machineId: machine.id,
+        machineName: machine.machineName,
+        userName: rentalForm.userName,
+        phone: rentalForm.phone,
+        villageName: rentalForm.villageName,
+        rentalDuration: rentalDuration,
+        totalPrice: calculateRentalPrice(),
+      };
 
-      if (error) throw error;
+      console.log("Sending rental request:", requestData);
+
+      const response = await fetch(`${API_BASE_URL}/rentals/request`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestData),
+      });
+
+      console.log("Response status:", response.status);
+
+      if (!response.ok) {
+        const error = await response.json();
+        console.error("API Error:", error);
+        throw new Error(error.message || 'Failed to create rental request');
+      }
+
+      const result = await response.json();
+      console.log("Success result:", result);
 
       toast.success("Rental request submitted!", {
         description: `Your request is pending admin approval.`,
       });
 
       setShowRentalDialog(false);
-      // Refresh the request status
-      const { data } = await supabase
-        .from("rental_requests")
-        .select("*")
-        .eq("user_id", user.id)
-        .eq("machine_id", machine.id)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .single();
-      setRentalRequest(data);
-    } catch (error) {
+      
+      // Set the rental request from the response
+      setRentalRequest(result.rentalRequest);
+    } catch (error: any) {
       console.error("Error creating rental request:", error);
-      toast.error("Failed to create request. Please try again.");
-    }
-  };
-
-  const handleRentNow = async () => {
-    if (!user || !rentalRequest) {
-      toast.error("Invalid rental request");
-      return;
-    }
-
-    try {
-      const { error } = await supabase
-        .from("rentals")
-        .insert({
-          user_id: user.id,
-          machine_id: machine.id,
-          machine_name: machine.machineName,
-          rental_duration: rentalRequest.rental_duration,
-          total_price: rentalRequest.total_price,
-          status: "ongoing",
-        });
-
-      if (error) throw error;
-
-      toast.success("Rental confirmed!", {
-        description: `Your rental has been activated.`,
-      });
-
-      setShowRentNowDialog(false);
-      setTimeout(() => navigate("/rentals"), 2000);
-    } catch (error) {
-      console.error("Error creating rental:", error);
-      toast.error("Failed to confirm rental. Please try again.");
+      toast.error(error.message || "Failed to create request. Please try again.");
     }
   };
 
@@ -309,20 +305,25 @@ const MachineDetails = () => {
                         <Calendar className="h-5 w-5 mr-2" />
                         Request Rental
                       </Button>
-                    ) : rentalRequest.admin_status === "pending" ? (
+                    ) : rentalRequest.adminStatus === "pending" ? (
                       <Button size="lg" variant="outline" className="w-full" disabled>
                         <Clock className="h-5 w-5 mr-2" />
                         Request Pending Approval
                       </Button>
-                    ) : rentalRequest.admin_status === "approved" ? (
-                      <Button size="lg" variant="default" className="w-full" onClick={() => setShowRentNowDialog(true)}>
+                    ) : rentalRequest.adminStatus === "approved" ? (
+                      <Button size="lg" variant="default" className="w-full" onClick={() => navigate("/rentals")}>
                         <CheckCircle className="h-5 w-5 mr-2" />
-                        Rent Now (Approved)
+                        View Rental Status
                       </Button>
-                    ) : (
+                    ) : rentalRequest.adminStatus === "rejected" ? (
                       <Button size="lg" variant="destructive" className="w-full" disabled>
                         <XCircle className="h-5 w-5 mr-2" />
                         Request Rejected
+                      </Button>
+                    ) : (
+                      <Button size="lg" variant="secondary" className="w-full" onClick={() => setShowRentalDialog(true)}>
+                        <Calendar className="h-5 w-5 mr-2" />
+                        Request Rental
                       </Button>
                     )}
                   </>

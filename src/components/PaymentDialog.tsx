@@ -97,7 +97,7 @@ const PaymentDialog = ({ open, onOpenChange, rental, onPaymentSuccess }: Payment
       
       const paymentData = {
         paymentMethod,
-        paymentAmount: rental.total_price,
+        paymentAmount: rental?.total_price || 0,
         transactionId: paymentDetails.transactionId || `${paymentMethod.toUpperCase()}_${Date.now()}`,
         upiId: paymentDetails.upiId,
         cardLast4: paymentDetails.cardLast4,
@@ -106,7 +106,7 @@ const PaymentDialog = ({ open, onOpenChange, rental, onPaymentSuccess }: Payment
 
       console.log("Sending payment data to backend:", paymentData);
 
-      const response = await fetch(`${API_BASE_URL}/rentals/${rental.id}/payment`, {
+      const response = await fetch(`${API_BASE_URL}/rentals/${rental?.id}/payment`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -257,7 +257,7 @@ const PaymentDialog = ({ open, onOpenChange, rental, onPaymentSuccess }: Payment
                         <p className="text-sm text-blue-700 dark:text-blue-300">
                           <strong>Payment Instructions:</strong><br />
                           1. Open your UPI app (PhonePe, GPay, Paytm)<br />
-                          2. Send ₹{rental.total_price?.toLocaleString()} to our UPI ID: <strong>mediequip@paytm</strong><br />
+                          2. Send ₹{rental?.total_price?.toLocaleString() || '0'} to our UPI ID: <strong>mediequip@paytm</strong><br />
                           3. Enter the transaction ID above after successful payment
                         </p>
                       </div>
@@ -320,7 +320,7 @@ const PaymentDialog = ({ open, onOpenChange, rental, onPaymentSuccess }: Payment
                     <div className="p-4 bg-orange-50 dark:bg-orange-950/30 rounded-lg">
                       <p className="text-sm text-orange-700 dark:text-orange-300">
                         <strong>Cash Payment:</strong><br />
-                        You can pay ₹{rental.total_price?.toLocaleString()} in cash when our team delivers the equipment to your location. 
+                        You can pay ₹{rental?.total_price?.toLocaleString() || '0'} in cash when our team delivers the equipment to your location. 
                         Please keep the exact amount ready.
                       </p>
                     </div>

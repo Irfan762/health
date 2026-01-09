@@ -2,8 +2,7 @@ import mongoose from 'mongoose';
 
 const rentalRequestSchema = new mongoose.Schema({
   machineId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Machine',
+    type: String,
     required: true
   },
   machineName: {
