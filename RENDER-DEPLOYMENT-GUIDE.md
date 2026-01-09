@@ -49,8 +49,8 @@
    - **Name:** `mediequip-backend`
    - **Environment:** `Node`
    - **Region:** Choose closest region
-   - **Branch:** `main`
-   - **Root Directory:** `backend`
+   - **Branch:** `master` (or `main` if that's your default branch)
+   - **Root Directory:** `backend` ⚠️ **CRITICAL: Must be set to `backend`**
    - **Build Command:** `npm install`
    - **Start Command:** `npm start`
 
