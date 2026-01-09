@@ -36,7 +36,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       const token = localStorage.getItem('authToken');
       if (token) {
-        const response = await fetch(`${API_BASE_URL}/auth/profile`, {
+        const response = await fetch(`${API_BASE_URL}/auth/me`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
