@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { machines } from "@/data/machines";
 import { useNavigate } from "react-router-dom";
 import PaymentDialog from "@/components/PaymentDialog";
+import type { Machine } from "@/types";
 
 interface Rental {
   id: string;
@@ -30,6 +31,7 @@ interface Rental {
 const Rentals = () => {
   const [rentals, setRentals] = useState<Rental[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [paymentDialog, setPaymentDialog] = useState<{ open: boolean; rental: Rental | null }>({
     open: false,
     rental: null
@@ -38,20 +40,25 @@ const Rentals = () => {
   const navigate = useNavigate();
 
   // Helper function to get machine details by ID or name
-  const getMachineDetails = (rental: Rental) => {
-    // First try to find by machine_id if available
-    if (rental.machine_id) {
-      const machine = machines.find(m => m.id === rental.machine_id);
-      if (machine) return machine;
+  const getMachineDetails = (rental: Rental): Machine | null => {
+    try {
+      // First try to find by machine_id if available
+      if (rental.machine_id) {
+        const machine = machines.find(m => m.id === rental.machine_id);
+        if (machine) return machine;
+      }
+      
+      // Fallback to finding by name (partial match)
+      const machine = machines.find(m => 
+        m.machineName.toLowerCase().includes(rental.machine_name.toLowerCase()) ||
+        rental.machine_name.toLowerCase().includes(m.machineName.toLowerCase())
+      );
+      
+      return machine || null;
+    } catch (error) {
+      console.error("Error getting machine details:", error);
+      return null;
     }
-    
-    // Fallback to finding by name (partial match)
-    const machine = machines.find(m => 
-      m.machineName.toLowerCase().includes(rental.machine_name.toLowerCase()) ||
-      rental.machine_name.toLowerCase().includes(m.machineName.toLowerCase())
-    );
-    
-    return machine || null;
   };
 
   useEffect(() => {
@@ -62,6 +69,7 @@ const Rentals = () => {
 
   const fetchRentals = async () => {
     try {
+      setError(null);
       // For now, use mock data since we have auth system mismatch
       // TODO: Fix authentication to work with MongoDB backend
       
@@ -132,6 +140,7 @@ const Rentals = () => {
       }
     } catch (error: any) {
       console.error("Error fetching rentals:", error);
+      setError("Failed to load rentals. Please try again.");
       toast.error("Failed to load rentals");
     } finally {
       setLoading(false);
@@ -300,6 +309,28 @@ const Rentals = () => {
             <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4" />
             <p className="text-muted-foreground">Loading rentals...</p>
           </div>
+        ) : error ? (
+          <Card className="border-border/50 shadow-lg bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm">
+            <CardContent className="py-20 text-center">
+              <div className="w-24 h-24 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center mx-auto mb-6">
+                <XCircle className="h-12 w-12 text-red-500" />
+              </div>
+              <h2 className="text-2xl font-bold mb-3 text-foreground">Error Loading Rentals</h2>
+              <p className="text-muted-foreground mb-6 max-w-md mx-auto leading-relaxed">
+                {error}
+              </p>
+              <Button 
+                onClick={() => {
+                  setError(null);
+                  setLoading(true);
+                  fetchRentals();
+                }}
+                className="shadow-lg hover:shadow-xl transition-all duration-300"
+              >
+                Try Again
+              </Button>
+            </CardContent>
+          </Card>
         ) : rentals.length === 0 ? (
           <Card className="border-border/50 shadow-lg bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm">
             <CardContent className="py-20 text-center">
