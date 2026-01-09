@@ -27,6 +27,11 @@ const PaymentDialog = ({ open, onOpenChange, rental, onPaymentSuccess }: Payment
   });
   const [isProcessing, setIsProcessing] = useState(false);
 
+  // Don't render if rental is null
+  if (!rental) {
+    return null;
+  }
+
   const paymentMethods = [
     {
       id: "upi",
@@ -58,8 +63,8 @@ const PaymentDialog = ({ open, onOpenChange, rental, onPaymentSuccess }: Payment
     }
   ];
 
-  const handlePayment = () => {
-    console.log("Payment button clicked - immediate processing");
+  const handlePayment = async () => {
+    console.log("Payment button clicked - processing with backend");
     console.log("Rental data:", rental);
     console.log("Payment method:", paymentMethod);
     
@@ -67,31 +72,74 @@ const PaymentDialog = ({ open, onOpenChange, rental, onPaymentSuccess }: Payment
       toast.error("Rental data not found");
       return;
     }
-    
-    const paymentData = {
-      paymentMethod,
-      paymentAmount: rental.total_price,
-      transactionId: paymentDetails.transactionId || "TEST123",
-      upiId: paymentDetails.upiId || "test@upi",
-      cardLast4: paymentDetails.cardLast4 || "1234",
-      notes: paymentDetails.notes
-    };
 
-    console.log("Processing payment:", paymentData);
-    console.log("Calling onPaymentSuccess...");
-    
-    // Complete immediately without any processing state
-    toast.success("Payment processed successfully!");
-    
-    if (onPaymentSuccess) {
-      onPaymentSuccess();
+    // Validate required fields based on payment method
+    if (paymentMethod === "upi" && (!paymentDetails.upiId || !paymentDetails.transactionId)) {
+      toast.error("Please enter UPI ID and Transaction ID");
+      return;
     }
     
-    if (onOpenChange) {
-      onOpenChange(false);
+    if (paymentMethod === "card" && (!paymentDetails.cardLast4 || !paymentDetails.transactionId)) {
+      toast.error("Please enter card details and Transaction ID");
+      return;
     }
     
-    console.log("Payment process completed");
+    if (paymentMethod === "bank_transfer" && !paymentDetails.transactionId) {
+      toast.error("Please enter Transaction ID");
+      return;
+    }
+
+    setIsProcessing(true);
+    
+    try {
+      const token = localStorage.getItem('authToken');
+      const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+      
+      const paymentData = {
+        paymentMethod,
+        paymentAmount: rental.total_price,
+        transactionId: paymentDetails.transactionId || `${paymentMethod.toUpperCase()}_${Date.now()}`,
+        upiId: paymentDetails.upiId,
+        cardLast4: paymentDetails.cardLast4,
+        notes: paymentDetails.notes
+      };
+
+      console.log("Sending payment data to backend:", paymentData);
+
+      const response = await fetch(`${API_BASE_URL}/rentals/${rental.id}/payment`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(paymentData)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Payment processing failed');
+      }
+
+      const result = await response.json();
+      console.log("Payment response:", result);
+      
+      toast.success("Payment processed successfully!");
+      
+      if (onPaymentSuccess) {
+        onPaymentSuccess();
+      }
+      
+      if (onOpenChange) {
+        onOpenChange(false);
+      }
+      
+      console.log("Payment process completed");
+    } catch (error: any) {
+      console.error("Payment error:", error);
+      toast.error(error.message || "Payment processing failed. Please try again.");
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const selectedMethod = paymentMethods.find(m => m.id === paymentMethod);
@@ -122,20 +170,20 @@ const PaymentDialog = ({ open, onOpenChange, rental, onPaymentSuccess }: Payment
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <p className="text-muted-foreground">Equipment</p>
-                  <p className="font-semibold">{rental.machine_name}</p>
+                  <p className="font-semibold">{rental?.machine_name || 'N/A'}</p>
                 </div>
                 <div>
                   <p className="text-muted-foreground">Duration</p>
-                  <p className="font-semibold">{rental.rental_duration}</p>
+                  <p className="font-semibold">{rental?.rental_duration || 'N/A'}</p>
                 </div>
                 <div>
                   <p className="text-muted-foreground">Customer</p>
-                  <p className="font-semibold">{rental.user_name}</p>
+                  <p className="font-semibold">{rental?.user_name || 'N/A'}</p>
                 </div>
                 <div>
                   <p className="text-muted-foreground">Total Amount</p>
                   <p className="text-2xl font-bold text-green-600 dark:text-green-400">
-                    ₹{rental.total_price?.toLocaleString()}
+                    ₹{rental?.total_price?.toLocaleString() || '0'}
                   </p>
                 </div>
               </div>
@@ -303,10 +351,20 @@ const PaymentDialog = ({ open, onOpenChange, rental, onPaymentSuccess }: Payment
             </Button>
             <Button
               onClick={handlePayment}
-              className="flex-1 bg-green-600 hover:bg-green-700"
+              disabled={isProcessing}
+              className="flex-1 bg-green-600 hover:bg-green-700 disabled:opacity-50"
             >
-              <CheckCircle className="h-4 w-4 mr-2" />
-              Complete Payment
+              {isProcessing ? (
+                <>
+                  <Clock className="h-4 w-4 mr-2 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  Complete Payment
+                </>
+              )}
             </Button>
           </div>
         </div>
