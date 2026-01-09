@@ -1,0 +1,35 @@
+services:
+  # Backend API Service
+  - type: web
+    name: mediequip-backend
+    env: node
+    plan: free
+    buildCommand: cd backend && npm install
+    startCommand: cd backend && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: MONGODB_URI
+        fromDatabase:
+          name: mediequip-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CORS_ORIGIN
+        value: https://mediequip-frontend.onrender.com
+
+  # Frontend Static Site
+  - type: static
+    name: mediequip-frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
+    envVars:
+      - key: VITE_API_URL
+        value: https://mediequip-backend.onrender.com/api
+
+databases:
+  - name: mediequip-db
+    databaseName: mediequip
+    user: mediequip_user

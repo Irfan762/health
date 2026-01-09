@@ -20,18 +20,30 @@ const PORT = process.env.PORT || 5000;
 connectDB();
 
 // Security middleware
-app.use(helmet());
+app.use(helmet({
+  crossOriginEmbedderPolicy: false,
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https:"],
+      scriptSrc: ["'self'"],
+      imgSrc: ["'self'", "data:", "https:"],
+      connectSrc: ["'self'", "https:"],
+    },
+  },
+}));
+
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
-    ? ['https://your-frontend-domain.com'] 
-    : ['http://localhost:3000', 'http://localhost:5173'],
+    ? [process.env.CORS_ORIGIN || 'https://mediequip-frontend.onrender.com'] 
+    : ['http://localhost:3000', 'http://localhost:5173', 'http://localhost:8080'],
   credentials: true
 }));
 
 // Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100 // limit each IP to 100 requests per windowMs
+  max: process.env.NODE_ENV === 'production' ? 100 : 1000 // More lenient in development
 });
 app.use(limiter);
 
@@ -48,7 +60,28 @@ app.use('/api/users', userRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'OK', message: 'Server is running' });
+  res.json({ 
+    status: 'OK', 
+    message: 'MediEquip API Server is running',
+    environment: process.env.NODE_ENV,
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Root route
+app.get('/', (req, res) => {
+  res.json({
+    message: 'MediEquip API Server',
+    version: '1.0.0',
+    endpoints: {
+      health: '/api/health',
+      auth: '/api/auth',
+      machines: '/api/machines',
+      rentals: '/api/rentals',
+      purchases: '/api/purchases',
+      users: '/api/users'
+    }
+  });
 });
 
 // Error handling middleware
@@ -59,6 +92,9 @@ app.use('*', (req, res) => {
   res.status(404).json({ message: 'Route not found' });
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
+  console.log(`Environment: ${process.env.NODE_ENV}`);
 });
+
+export default app;
