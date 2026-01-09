@@ -35,7 +35,10 @@ app.use(helmet({
 
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
-    ? [process.env.CORS_ORIGIN || 'https://mediequip-frontend.onrender.com'] 
+    ? [
+        process.env.CORS_ORIGIN || 'https://mediequip-frontend.onrender.com',
+        'https://health-lobp.onrender.com' // Your actual frontend domain
+      ] 
     : ['http://localhost:3000', 'http://localhost:5173', 'http://localhost:8080'],
   credentials: true
 }));

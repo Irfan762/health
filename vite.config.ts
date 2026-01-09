@@ -9,6 +9,15 @@ export default defineConfig(({ mode }) => ({
     host: "::",
     port: 8080,
   },
+  preview: {
+    host: "::",
+    port: 3000,
+    allowedHosts: [
+      "health-lobp.onrender.com",
+      ".onrender.com", // Allow all Render subdomains
+      "localhost"
+    ]
+  },
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
   resolve: {
     alias: {
